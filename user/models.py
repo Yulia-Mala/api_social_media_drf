@@ -3,6 +3,7 @@ import uuid
 
 from django.conf import settings
 from django.contrib.auth.base_user import BaseUserManager
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils.text import slugify
@@ -61,11 +62,6 @@ class User(AbstractUser):
         max_length=23, choices=GenderChoices.choices, null=True, blank=True
     )
     avatar = models.ImageField(null=True, blank=True, upload_to=create_custom_path)
-    followed_users = models.ManyToManyField(
-        settings.AUTH_USER_MODEL,
-        related_name="who_follow_me",
-        blank=True,
-    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -73,3 +69,35 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+    @property
+    def influenced_by_counter(self):
+        return UserFollowing.objects.filter(user_who_follow__id=self.id).count()
+
+    @property
+    def followed_by_counter(self):
+        return UserFollowing.objects.filter(user_who_influence__id=self.id).count()
+
+
+class UserFollowing(models.Model):
+    user_who_follow = models.ForeignKey(
+        "User", related_name="influenced_by", on_delete=models.DO_NOTHING
+    )
+    user_who_influence = models.ForeignKey(
+        "User", related_name="followed_by", on_delete=models.DO_NOTHING
+    )
+
+    def __str__(self):
+        return (
+            f"Who: {self.user_who_follow.email} Whom: {self.user_who_influence.email}"
+        )
+
+    def clean(self):
+        if self.user_who_follow.id == self.user_who_influence.id:
+            raise ValidationError("User cannot follow oneself")
+
+    def save(
+        self, force_insert=False, force_update=False, using=None, update_fields=None
+    ):
+        self.full_clean()
+        super().save(force_insert, force_update, using, update_fields)
