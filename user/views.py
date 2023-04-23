@@ -1,11 +1,12 @@
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from rest_framework import status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import generics
 
-from user.models import User, UserFollowing
+from user.models import UserFollowing
 from user.serializers import UserListSerializer, UserDetailSerializer, UserSerializer
 
 
@@ -21,61 +22,84 @@ class UpdateUserView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
-class UserListRetrieveView(generics.ListAPIView, generics.RetrieveAPIView):
+class UserListView(generics.ListAPIView):
+    serializer_class = UserListSerializer
+
     def get_queryset(self):
-        queryset = User.objects.all()
+        queryset = get_user_model().objects.exclude(id=self.request.user.id)
         username = self.request.query_params.get("username")
         if username:
             queryset = queryset.filter(username__icontains=username)
         return queryset
 
-    def get_serializer_class(self):
-        if self.action == "list":
-            return UserListSerializer
-        if self.action == "retrieve":
-            return UserDetailSerializer
 
-    @action(methods=["GET"], detail=True, url_path="follow_user")
-    def follow_user(self, request, pk=None):
+class UserFollowers(UserListView):
+    def get_queryset(self):
         current_user = self.request.user
-        try:
-            user_to_follow = User.objects.get(pk=pk)
-        except ObjectDoesNotExist:
-            return Response(
-                data="Check that such a user exists.",
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        try:
-            UserFollowing.objects.create(
-                user_who_follow=current_user, user_who_influence=user_to_follow
-            )
-            return Response(status=status.HTTP_201_CREATED)
+        followers = UserFollowing.objects.filter(
+            user_who_influence=current_user
+        ).values_list("user_who_follow__id")
+        return get_user_model().objects.filter(id__in=followers)
 
-        except ValidationError:
-            return Response(
-                data="User cannot follow oneself. "
-                "Check that you don't try to follow user who you have already follow",
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
-    @action(methods=["GET"], detail=True, url_path="unfollow_user")
-    def unfollow_user(self, request, pk=None):
+class UserInfluencers(UserListView):
+    def get_queryset(self):
         current_user = self.request.user
-        try:
-            user_to_unfollow = User.objects.get(pk=pk)
-        except ObjectDoesNotExist:
-            return Response(
-                data="Check that such a user exists.",
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        try:
-            relation = UserFollowing.objects.get(
-                user_who_follow=current_user, user_who_influence=user_to_unfollow
-            )
-        except ObjectDoesNotExist:
-            return Response(
-                data="You don't follow such a user",
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        relation.delete()
-        return Response(status=status.HTTP_200_OK)
+        influencers = UserFollowing.objects.filter(
+            user_who_follow=current_user
+        ).values_list("user_who_influence__id")
+        return get_user_model().objects.filter(id__in=influencers)
+
+
+class UserRetrieveView(generics.RetrieveAPIView):
+    serializer_class = UserDetailSerializer
+
+    def get_queryset(self):
+        return get_user_model().objects.all()
+
+
+@api_view(["GET"])
+def follow_user(request, pk=None):
+    current_user = request.user
+    try:
+        user_to_follow = get_user_model().objects.get(pk=pk)
+    except ObjectDoesNotExist:
+        return Response(
+            data="Check that such a user exists.",
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    try:
+        UserFollowing.objects.create(
+            user_who_follow=current_user, user_who_influence=user_to_follow
+        )
+        return Response(status=status.HTTP_201_CREATED)
+
+    except ValidationError:
+        return Response(
+            data="User cannot follow oneself. "
+            "Check that you don't try to follow user who you have already follow",
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+
+@api_view(["GET"])
+def unfollow_user(request, pk=None):
+    current_user = request.user
+    try:
+        user_to_unfollow = get_user_model().objects.get(pk=pk)
+    except ObjectDoesNotExist:
+        return Response(
+            data="Check that such a user exists.",
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    try:
+        relation = UserFollowing.objects.get(
+            user_who_follow=current_user, user_who_influence=user_to_unfollow
+        )
+    except ObjectDoesNotExist:
+        return Response(
+            data="You don't follow such a user",
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    relation.delete()
+    return Response(status=status.HTTP_200_OK)
