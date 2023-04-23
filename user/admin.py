@@ -20,6 +20,7 @@ class UserAdmin(DjangoUserAdmin):
                     "birthday",
                     "gender",
                     "avatar",
+                    "followed_users",
                 )
             },
         ),
