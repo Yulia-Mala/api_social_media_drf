@@ -1,7 +1,6 @@
 import os
 import uuid
 
-from django.conf import settings
 from django.contrib.auth.base_user import BaseUserManager
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -86,6 +85,13 @@ class UserFollowing(models.Model):
     user_who_influence = models.ForeignKey(
         "User", related_name="followed_by", on_delete=models.DO_NOTHING
     )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user_who_follow", "user_who_influence"], name="unique_pair"
+            )
+        ]
 
     def __str__(self):
         return (
