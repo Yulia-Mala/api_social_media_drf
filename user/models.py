@@ -80,10 +80,10 @@ class User(AbstractUser):
 
 class UserFollowing(models.Model):
     user_who_follow = models.ForeignKey(
-        "User", related_name="influenced_by", on_delete=models.DO_NOTHING
+        "User", related_name="users_who_follow", on_delete=models.DO_NOTHING
     )
     user_who_influence = models.ForeignKey(
-        "User", related_name="followed_by", on_delete=models.DO_NOTHING
+        "User", related_name="users_who_influence", on_delete=models.DO_NOTHING
     )
 
     class Meta:

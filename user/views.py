@@ -1,13 +1,27 @@
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
-from rest_framework import viewsets, status
+from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework import generics
 
 from user.models import User, UserFollowing
-from user.serializers import UserListSerializer, UserDetailSerializer
+from user.serializers import UserListSerializer, UserDetailSerializer, UserSerializer
 
 
-class UserViewSet(viewsets.ModelViewSet):
+class CreateUserView(generics.CreateAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [AllowAny]
+
+
+class UpdateUserView(generics.RetrieveUpdateAPIView):
+    serializer_class = UserSerializer
+
+    def get_object(self):
+        return self.request.user
+
+
+class UserListRetrieveView(generics.ListAPIView, generics.RetrieveAPIView):
     def get_queryset(self):
         queryset = User.objects.all()
         username = self.request.query_params.get("username")
@@ -20,7 +34,6 @@ class UserViewSet(viewsets.ModelViewSet):
             return UserListSerializer
         if self.action == "retrieve":
             return UserDetailSerializer
-        return UserListSerializer
 
     @action(methods=["GET"], detail=True, url_path="follow_user")
     def follow_user(self, request, pk=None):
