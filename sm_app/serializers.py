@@ -14,9 +14,11 @@ class LikeSerializer(serializers.ModelSerializer):
 
 class PostSerializer(serializers.ModelSerializer):
     user = serializers.CharField(source="user.username", read_only=True)
-    likes = LikeSerializer(many=True)
+    likes = LikeSerializer(many=True, read_only=True)
 
     class Meta:
         model = Post
         fields = ["id", "time", "user", "text", "image", "likes"]
-        read_only_fields = ("user",)
+        read_only_fields = [
+            "user",
+        ]

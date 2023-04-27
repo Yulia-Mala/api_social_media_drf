@@ -1,7 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
-from rest_framework.decorators import action, api_view
+from rest_framework.decorators import api_view
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import generics
@@ -31,6 +32,20 @@ class UserListView(generics.ListAPIView):
         if username:
             queryset = queryset.filter(username__icontains=username)
         return queryset
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "username",
+                type=str,
+                description="Retrieve users with usernames that contains some text"
+                "Case-insensitive Url format: url + ?username=abc",
+                required=False,
+            ),
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
 
 class UserFollowers(UserListView):
